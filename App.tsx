@@ -1,7 +1,8 @@
-import React, {useEffect} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Linking,
   PermissionsAndroid,
   Vibration,
@@ -132,7 +133,25 @@ const stopSoundAndVibration = () => {
 };
 
 export default function App() {
+  const appState = useRef(AppState.currentState);
+
   useEffect(() => {
+    const handleAppStateChange = (nextAppState: any) => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        // App has come to the foreground, stop sound and vibration
+        stopSoundAndVibration();
+      }
+      appState.current = nextAppState;
+    };
+
+    const appStateSubscription = AppState.addEventListener(
+      'change',
+      handleAppStateChange,
+    );
+
     const requestUserPermission = async () => {
       await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
@@ -150,6 +169,10 @@ export default function App() {
     };
 
     requestUserPermission();
+
+    return () => {
+      appStateSubscription.remove();
+    };
   }, []);
 
   return (
