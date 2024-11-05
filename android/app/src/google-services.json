@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "940260544907",
+    "project_id": "notification-resturant",
+    "storage_bucket": "notification-resturant.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:940260544907:android:764e2067d69b1517789f8e",
+        "android_client_info": {
+          "package_name": "com.notificationordering"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBBQJ_Bdp4A_qt77aTOIsBY9z6sPRxMuzY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
