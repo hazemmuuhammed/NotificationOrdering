@@ -5,33 +5,96 @@ import {
   AppState,
   Linking,
   PermissionsAndroid,
+  PushNotificationIOS,
   Vibration,
 } from 'react-native';
 import messaging, {
   FirebaseMessagingTypes,
 } from '@react-native-firebase/messaging';
-import notifee from '@notifee/react-native';
+import notifee, {AndroidImportance} from '@notifee/react-native';
 import Sound from 'react-native-sound';
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import Home from './feature/screens/Home';
 import Details from './feature/screens/DetailsScreen';
+import PushNotification from 'react-native-push-notification';
 
 const Stack = createNativeStackNavigator();
 const NAVIGATION_IDS = ['Home', 'Details'];
 
 // Sound instance
-let sound: Sound;
+let sound: Sound | null = null;
+
+// Stop sound and vibration
+const stopSoundAndVibration = () => {
+  if (sound) {
+    sound.stop();
+    sound.release();
+    sound = null; // Reset sound instance
+  }
+  Vibration.cancel(); // Stop vibration
+};
+
+// Create notification channel (Android)
+const createNotificationChannel = async () => {
+  PushNotification.createChannel(
+    {
+      channelId: 'my_channel_id', // Must match the ID defined in the native code
+      channelName: 'My Notification Channel',
+      channelDescription: 'Channel for app notifications',
+      soundName: 'custom_notification_sound.mp3', // File name without path
+      importance: 4, // HIGH
+      vibrate: true,
+    },
+    created => console.log(`createChannel returned '${created}'`), // Log to check channel creation
+  );
+};
+
+// Handle notification: Play sound, vibrate, and show alert if in the foreground
+const handleNotification = (
+  remoteMessage: FirebaseMessagingTypes.RemoteMessage,
+) => {
+  // Custom sound
+  sound = new Sound('linging_phone.mp3', Sound.MAIN_BUNDLE, error => {
+    if (error) {
+      console.error('Failed to load sound:', error);
+      return;
+    }
+    sound?.setNumberOfLoops(0); // Play once
+    sound?.play(success => {
+      if (!success) {
+        console.error('Sound playback failed');
+      }
+    });
+  });
+
+  // Vibrate pattern
+  Vibration.vibrate([500, 500], true);
+
+  // Show alert if in foreground
+  if (remoteMessage.notification) {
+    Alert.alert(
+      remoteMessage.notification.title || 'No Title',
+      remoteMessage.notification.body || 'No Body',
+      [
+        {
+          text: 'Stop',
+          onPress: () => stopSoundAndVibration(),
+        },
+      ],
+    );
+  }
+};
 
 // Function to handle deep links
-function buildDeepLinkFromNotificationData({data}: any) {
+const buildDeepLinkFromNotificationData = ({data}: any) => {
   const navigationId = data?.navigationId;
   if (!NAVIGATION_IDS.includes(navigationId)) {
     console.warn('Unverified navigationId', navigationId);
     return null;
   }
-  return navigationId === 'Home' ? 'myapp://home' : 'myapp://Details';
-}
+  return navigationId === 'Home' ? 'myapp://home' : 'myapp://details';
+};
 
 const linking = {
   prefixes: ['myapp://'],
@@ -87,51 +150,6 @@ const linking = {
   },
 };
 
-// Handle notification: Play sound, vibrate, and show alert if in the foreground
-const handleNotification = (
-  remoteMessage: FirebaseMessagingTypes.RemoteMessage,
-) => {
-  // Custom sound
-  sound = new Sound('linging_phone.mp3', Sound.MAIN_BUNDLE, error => {
-    if (error) {
-      console.log('Failed to load sound:', error);
-      return;
-    }
-    sound.setNumberOfLoops(-1); // Loop indefinitely
-    sound.play(success => {
-      if (!success) {
-        console.log('Sound playback failed');
-      }
-    });
-  });
-
-  // Vibrate indefinitely
-  Vibration.vibrate([500, 500], true);
-
-  // Show alert if in foreground
-  if (remoteMessage.notification) {
-    Alert.alert(
-      remoteMessage.notification.title || 'No Title',
-      remoteMessage.notification.body || 'No Body',
-      [
-        {
-          text: 'Stop',
-          onPress: () => stopSoundAndVibration(),
-        },
-      ],
-    );
-  }
-};
-
-// Stop sound and vibration
-const stopSoundAndVibration = () => {
-  if (sound) {
-    sound.stop();
-    sound.release(); // Release sound to free up resources
-  }
-  Vibration.cancel(); // Stop vibration
-};
-
 export default function App() {
   const appState = useRef(AppState.currentState);
 
@@ -169,6 +187,7 @@ export default function App() {
     };
 
     requestUserPermission();
+    createNotificationChannel();
 
     return () => {
       appStateSubscription.remove();
